@@ -6,19 +6,19 @@ Link: https://www.udemy.com/course/testing-spring-boot-beginner-to-guru/learn/le
 - [Testing Spring Boot: Beginner to Guru](#testing-spring-boot-beginner-to-guru)
   - [Tabla de Contenidos](#tabla-de-contenidos)
   - [Conceptos importantes](#conceptos-importantes)
-    - [¿Por qué es importante el testing?](#por-qué-es-importante-el-testing)
-    - [Unit tests](#unit-tests)
-    - [Integration tests](#integration-tests)
-    - [Functional tests](#functional-tests)
-    - [Errores comunes](#errores-comunes)
-    - [Tips](#tips)
+    - [¿Por qué es importante el testing?](#-por-qué-es-importante-el-testing)
+    - [Unit tests](#%EF%B8%8F-unit-tests)
+    - [Integration tests](#-integration-tests)
+    - [Functional tests](#-functional-tests)
+    - [Errores comunes](#-errores-comunes)
+    - [Tips](#-tips)
     - [Code coverage](#code-coverage)
   - [Test-Driven Development (TDD)](#test-driven-development-tdd)
     - [Ciclo de TDD](#ciclo-de-tdd)
-    - [Tips](#tips-1)
+    - [Tips](#-tips-1)
   - [JUnit 5](#junit-5)
     - [Configuración](#configuración)
-    - [Tips](#tips-2)
+    - [Tips](#-tips)
     - [Probar las excepciones esperadas](#probar-las-excepciones-esperadas)
     - [Testing timeouts](#testing-timeouts)
     - [Ejecución opcional de tests](#ejecución-opcional-de-tests)
@@ -41,11 +41,12 @@ Link: https://www.udemy.com/course/testing-spring-boot-beginner-to-guru/learn/le
   - [Mockito avanzado](#mockito-avanzado)
     - [Excepciones](#excepciones)
     - [Capturar argumentos con *Argument Captor*](#capturar-argumentos-con-argument-captor)
-  - [Dudas](#dudas)
-    - [¿Cómo pruebo un método privado?](#cómo-pruebo-un-método-privado)
+  - [Dudas](#-dudas)
+    - [¿Cómo pruebo un método privado?](#%EF%B8%8F-cómo-pruebo-un-método-privado)
       - [Usando Java Reflection](#usando-java-reflection)
       - [Usando Springboot](#usando-springboot)
-    - [¿Qué sentido tiene testear un Service que lo único que hace es llamar a un Repository?](#qué-sentido-tiene-testear-un-service-que-lo-único-que-hace-es-llamar-a-un-repository)
+    - [¿Qué sentido tiene testear un Service que lo único que hace es llamar a un Repository?](#%EF%B8%8F-qué-sentido-tiene-testear-un-service-que-lo-único-que-hace-es-llamar-a-un-repository)
+  - [Links a artículos interesantes](#links-a-artículos-interesantes)
 
 ## Conceptos importantes
 
@@ -475,6 +476,10 @@ public class SpecialitySDJpaServiceTest {
 }
 ```
 
+**Prestar especial atención a los objetos que se están mockeando:** un error común es hacer un Mock de la clase que estamos probando, lo que carece de sentido. Es como hacer un examen a carpeta abierta.
+
+En el ejemplo de arriba, si en vez de mockear el **repository** mockearamos el **service**, que es la clase que estamos probando, eso estaria mal. Siempre se deben mockear **las dependencias**, nunca funciones propias de la clase o funcionalidad que estamos probando.
+
 Como habremos notado, la función `verify()` de *Mockito* no parece realmente servir de algo al verificar que realmente se llamó al *Repository* luego de hacer el `delete`. Además, al usarlo estás "atando" el test a _la implementación particular del repository_ que estás usando. Y esto **puede que te obligue a corregir** esa parte del test si haces un *refactor* sobre el repository. Es decir, agrega un overhead.
 
 En otros escenarios donde sí nos interesa hacer una verificación más minuciosa, espcialmente en algún ***Test de integración***, este método si nos puede resultar útil. Dejo el link a [este thread](https://stackoverflow.com/questions/12539365/when-to-use-mockito-verify) de StackOverflow en donde justamente se discute esto y explican más detalladamente lo que acabo de decir.
@@ -594,3 +599,6 @@ Es la pregunta que siempre me hice. Uno de los instructores responde pero no da 
 ()[https://www.udemy.com/course/testing-spring-boot-beginner-to-guru/learn/lecture/12562476#questions/5700521]
 
 "La verdad es que se usa solo en TDD, ya que se escribe primero el test y luego el código."
+
+## Links a artículos interesantes
+- [Utilidades para testing provistas por *Springboot*](https://docs.spring.io/spring-framework/docs/current/reference/html/testing.html)

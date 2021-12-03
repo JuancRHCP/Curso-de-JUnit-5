@@ -542,6 +542,13 @@ Podemos probar esto **mockeando la excepción de que no hay suficiente stock** y
 ¿Para que sirve?
 ¿Cómo se usa?
 
+# Tests de Integracion
+
+[Aqui dejo un articulo](https://dzone.com/articles/integration-testing-in-spring-boot-1) que muestra ejemplos claros y practicos de como hacer tests de integracion con *Springboot*.
+
+
+
+**Voy a intentar aplicar esto y hablaré más al respecto cuando ya tenga alguna experiencia.**
 
 ## ❓ Dudas 
 * ¿Cuándo es útil usar `@RepeatedTest`?
@@ -600,5 +607,15 @@ Es la pregunta que siempre me hice. Uno de los instructores responde pero no da 
 
 "La verdad es que se usa solo en TDD, ya que se escribe primero el test y luego el código."
 
+### ¿Cómo pruebo un repository o DAO?
+Primero que nada, aclarar que si levantamos el *spring context* el test pasará a ser considerado ***de integración*** y no ***unitario***. Por ello, en la medida de lo posible, aprovechar cada vez que se levanta el *spring context* para correr **varios** tests de integracion.
+
+Para responder esta pregunta [aquí dejo hay un artículo](https://howtodoinjava.com/best-practices/how-you-should-unit-test-dao-layer/) que muestra un ejemplo y lo explica bastante bien, aunque me permito hacer algunas notas:
+
+1. Tener en cuenta que el ejemplo está hecho en JUnit 4, no JUnit 5.
+2. Alli propone un *archivo de configuracion especifico para test* donde logicamente estara apuntando a una BD, otra opcion interesante es levantar una BD en memoria (por ejemplo, *H2*) para que no necesitemos tener una BD levantada solo para poder compilar.
+3. Si vamos a agregar tests para los *controllers*, no hará falta agregar tests individuales para el DAO ya que, [podemos aprovechar los tests de integracion para probar desde el *controller* hasta el *DAO*](https://dzone.com/articles/integration-testing-in-spring-boot-1).
+
 ## Links a artículos interesantes
 - [Utilidades para testing provistas por *Springboot*](https://docs.spring.io/spring-framework/docs/current/reference/html/testing.html)
+- [Buenas practicas de tests unitarios (JUnit)](https://howtodoinjava.com/best-practices/unit-testing-best-practices-junit-reference-guide/)

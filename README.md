@@ -539,16 +539,215 @@ Podemos probar esto **mockeando la excepción de que no hay suficiente stock** y
 *Mockito* soporta esto tanto para **TDD** como para **BDD**.
 
 ### Capturar argumentos con *Argument Captor*
-¿Para que sirve?
-¿Cómo se usa?
+Sirve para capturar los argumentos que se le pasan a una función, que no necesariamente tiene que ser la misma función que llamamos desde el código del test, sino que puede ser una que es llamada indirectamente.
+Podemos usarla para agregar alguna *assertion* sobre un parámetro, el cual esperamos que sea uno en particular o que sea modificado de una cierta forma.
 
-# Tests de Integracion
+El ejemplo que se da en el curso es el siguiente:
+```java
+public class OwnerController {
+    // ...
+    public String processFindForm(Owner owner, BindingResult result, Model model) {
+        // ....
+        List<Owner> results = ownerService.findAllByLastNameLike("%" + owner.getLastName() + "%");
+        if (results.isEmpty()) {
+            result.rejectValue("lastName", "notFound", "not found");
+            return "owners/findOwners"; // Esto es una vista
+        } else if (results.size() == 1) {
+            owner = results.get(0);
+            return "redirect/:owners/" + owner.getId();
+        } else {
+            model.addAttribute("selections", results);
+            return "owners/ownersList";
+        }
+    }
+}
+
+@ExtendWith(MockitoExtension.class)
+public class OwnerControllerTest {
+    @Mock
+    OwnerService ownerService;
+
+    @Mock
+    BindingResult bindingResult;
+
+    @InjectMocks
+    OwnerController controller;
+
+    @Captor
+    ArgumentCaptor<String> stringArgumentCaptor;
+
+    // 1
+    @Test
+    void processFindFormWildcardString() {
+        //given
+        Owner owner = new Owner(1l, "Joe", "Buck");
+        List<Owner> ownerList = new ArrayList<>();
+        final ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        given(ownerService.findAllByLastNameLike(captor.capture())).willReturn(ownerList);
+
+        //when
+        String viewName = controller.processFindForm(owner, bindingResult, null);
+
+        //then
+        assertThat("%Buck%").isEqualToIgnoringCase(captor.getValue());
+    }
+
+    // 2. Otra forma de hacer lo mismo pero utilizando el @Captor
+    @Test
+    void processFindFormWildcardStringAnnotation() {
+        //given
+        Owner owner = new Owner(1l, "Joe", "Buck");
+        List<Owner> ownerList = new ArrayList<>();
+        given(ownerService.findAllByLastNameLike(stringArgumentCaptor.capture())).willReturn(ownerList);
+
+        //when
+        String viewName = controller.processFindForm(owner, bindingResult, null);
+
+        //then
+        assertThat("%Buck%").isEqualToIgnoringCase(stringArgumentCaptor.getValue());
+    }
+}
+```
+
+
+### Answers
+Son otra manera de hacer los mocks. Basicamente nos permite usar una función lambda para definir el comportamiento de nuestor Mock. Si se usa bien, puede ayudar a generar códgio limpio dentro de los tests. El [ejemplo que da en el curso](https://github.com/springframeworkguru/tb2g-bdd-mockito/blob/answers/src/test/java/guru/springframework/sfgpetclinic/controllers/OwnerControllerTest.java) está bastante bueno: hace un mock de un `Service` que varía su respuesta según el parametro (usa *argument captor*) para poder probar un método en específico (`processFindForm`) que es el retorna la URL de la página a cargar.
+
+```java
+// ...
+@BeforeEach
+void setUp() {
+    given(ownerService.findAllByLastNameLike(stringArgumentCaptor.capture()))
+            .willAnswer(invocation -> {
+        List<Owner> owners = new ArrayList<>();
+
+        String name = invocation.getArgument(0);
+
+        if (name.equals("%Buck%")) {
+            owners.add(new Owner(1l, "Joe", "Buck"));
+            return owners;
+        } else if (name.equals("%DontFindMe%")) {
+            return owners;
+        } else if (name.equals("%FindMe%")) {
+            owners.add(new Owner(1l, "Joe", "Buck"));
+            owners.add(new Owner(2l, "Joe2", "Buck2"));
+            return owners;
+        }
+
+        throw new RuntimeException("Invalid Argument");
+    });
+}
+
+@Test
+void processFindFormWildcardFound() {
+    //given
+    Owner owner = new Owner(1l, "Joe", "FindMe");
+
+    //when
+    String viewName = controller.processFindForm(owner, bindingResult, Mockito.mock(Model.class));
+
+    //then
+    assertThat("%FindMe%").isEqualToIgnoringCase(stringArgumentCaptor.getValue());
+    assertThat("owners/ownersList").isEqualToIgnoringCase(viewName);
+}
+// ...
+```
+
+### Verificar orden de ejecución
+La clase `InOrder` nos permite declarar el orden en que deben **verificarse** las interacciones, es decir, el orden en el que se ejecutará el `Mockito.verify`. Es posible testear código sin usar esto, aunque no está de más agregar estas restricciones en casos donde sí tiene sentido. El objetivo de esto entiendo que viene al tratar de evitar que un cambio posterior introduzca sin querer un bug, como cualquier otro test. A continuación dejo un ejemplo **real** extraído de la librería de Google *Guava*:
+
+```java
+@Test
+public void testAddDelayedShutdownHook_success() throws InterruptedException {
+    TestApplication application = new TestApplication();
+    ExecutorService service = mock(ExecutorService.class);
+    application.addDelayedShutdownHook(service, 2, TimeUnit.SECONDS);
+    verify(service, Mockito.never()).shutdown();
+    application.shutdown();
+    InOrder shutdownFirst = Mockito.inOrder(service);
+    shutdownFirst.verify(service).shutdown();
+    shutdownFirst.verify(service).awaitTermination(2, TimeUnit.SECONDS);
+}
+```
+
+Para ver el código fuente en GitHub [click aquí.](https://github.com/google/guava/blob/13f703c25f43bda8935b28e7b481de48d6b9bc1b/guava-tests/test/com/google/common/util/concurrent/MoreExecutorsTest.java#L570)
+
+También puede agregarse al final el método `inOrder.verifyNoMoreInteractions()` y `verifyZeroInteractions(object)` para agregar aún más restricciones. Este último puede usarse en cualquier parte del test, entonces podemos usarlo para decir "hasta este momento no se llamó a este objeto" y verificar más adelante en el tiempo sí se hicieron llamadas.
+
+
+### Spies
+Los espías son como **"Mock parciales"** ya que, salvo que hagamos un mock de un método específico, el espía ejecutara el método **real**. El uso de espías está desaconsejado salvo en casos donde realmente sea muy útil, por ejemplo código de terceros o que no podemos cambiar facilmente. ¿Por qué? Porque es más fácil seguro ejecutar el código real que construir un Mock que pueda no comportarse exactamente como el código.
+
+```java
+    List list = new LinkedList();
+    List spy = spy(list);
+
+    //optionally, you can stub out some methods:
+    when(spy.size()).thenReturn(100);
+
+    //using the spy calls *real* methods
+    spy.add("one");
+    spy.add("two");
+
+    //prints "one" - the first element of a list
+    System.out.println(spy.get(0));
+
+    //size() method was stubbed - 100 is printed
+    System.out.println(spy.size());
+
+    //optionally, you can verify
+    verify(spy).add("one");
+    verify(spy).add("two");
+```
+
+**Cuidado con usar el `thenReturn()` ya que este no funciona con los Spy. Usar `doReturn()`. Ejemplo:**
+```java
+    List list = new LinkedList();
+    List spy = spy(list);
+
+    //Impossible: real method is called so spy.get(0) throws IndexOutOfBoundsException (the list is yet empty)
+    when(spy.get(0)).thenReturn("foo");
+    // Puedo usar esto para aclararlo de forma explicita. ESTO NO HACE NADA, ES SOLO PARA FACILITAR LA LECTURA.
+    when(spy.someMethod()).thenCallRealMethod();
+
+    //You have to use doReturn() for stubbing
+    doReturn("foo").when(spy).get(0);
+```
+
+
+## Spring Framework
+Aquí voy a mencionar algunas de las herramientas que nos proporciona *Spring*, no *Springboot* para testing.
+
+### Mocks
+* Environment
+* JDNI
+* Servlet API
+* Spring Web Reactive
+
+Para usarlos es necesario añadir `@SpringJUnitConfig` a nuestra clase de test.
+
+### ReflectionTestUtils
+`ReflectionTestUtils` es una clase que nos permite testear método privados de una clase, entre otras cosas. Más abajo, en la sección de dudas, hay un ejemplo.
+
+### Spring MVC Test
+Provee herramientas para testear los controladores sin necesidad de levantar el contexto de Spring, lo que nos permite hacer **tests unitarios** sobre los controladores.
+* `MockHttpServletRequest`: para request y responses.
+* `MockHttpSession`
+* `ModelAndViewAssert`
+
+### Tests de Integracion
 
 [Aqui dejo un articulo](https://dzone.com/articles/integration-testing-in-spring-boot-1) que muestra ejemplos claros y practicos de como hacer tests de integracion con *Springboot*.
 
-
+* Spring cachea el contexto entre tests para levantar más rápido el contexto.
+* Permite inyectar beans en clases de test.
+* Por defecto, hace rollback de todas las transacciones de Base de Datos.
+* Spring automaticamente crea una instancia de `JdbcTemplate` que junto con `JdbcTestsUtils` nos da algunas herramientas para hacer tests.
+* Soporta varias BD embebidas, entre las cuales H2 parece ser la mejor: H2, HSQL, Derby.
 
 **Voy a intentar aplicar esto y hablaré más al respecto cuando ya tenga alguna experiencia.**
+
+----
 
 ## ❓ Dudas 
 * ¿Cuándo es útil usar `@RepeatedTest`?
